@@ -1,121 +1,88 @@
+
 import {
-  Home,
-  FolderOpen,
-  Clock3,
-  Star,
-  Trash2,
-  HardDrive,
-  Settings,
-  Plus,
-  FileText,
-  Image,
-} from "lucide-react";
+  Home, Monitor, Download, FileText, Image, Music, Video,
+  HardDrive, Star, Clock3, Settings, FolderOpen,
+} from 'lucide-react';
 
-import IconButton from "../common/IconButton";
-
-interface SidebarProps {
-  activePage: string;
+interface Props {
   onNavigate: (page: string) => void;
-  onClose?: () => void;
 }
 
-const navigation = [
-  { label: "Home", icon: Home },
-  { label: "My Files", icon: FolderOpen },
-  { label: "Recent", icon: Clock3 },
-  { label: "Favorites", icon: Star },
-  { label: "Trash", icon: Trash2 },
+const mainLinks = [
+  { label: 'Home', icon: Home },
+  { label: 'Gallery', icon: Image },
 ];
 
-export default function Sidebar({
-  activePage,
-  onNavigate,
-  onClose,
-}: SidebarProps) {
+const pinnedLinks = [
+  { label: 'Desktop', icon: Monitor },
+  { label: 'Downloads', icon: Download },
+  { label: 'Documents', icon: FileText },
+  { label: 'Pictures', icon: Image },
+  { label: 'Music', icon: Music },
+  { label: 'Videos', icon: Video },
+];
+
+export default function Sidebar({ onNavigate }: Props) {
   return (
-    <aside className="sidebar">
+    <div className="sidebar">
       <div className="brand">
-        <div className="brand-mark">
-          <FolderOpen size={21} />
+        <div className="brand-mark"><FolderOpen size={21} /></div>
+        <div>
+          <div className="brand-name">folio<span>.</span></div>
+          <div className="brand-caption">FILE EXPLORER</div>
         </div>
-
-        <span className="brand-name">
-          folio<span>.</span>
-        </span>
-
-        <IconButton
-          className="mobile-close"
-          onClick={onClose}
-          aria-label="Close navigation"
-        >
-          ×
-        </IconButton>
       </div>
 
-      <div className="workspace-label">WORKSPACE</div>
-
-      <nav className="navigation">
-        {navigation.map(({ label, icon: Icon }) => (
+      <div className="nav-group">
+        <div className="nav-heading">QUICK ACCESS</div>
+        {mainLinks.map(({ label, icon: Icon }) => (
           <button
             key={label}
-            className={`nav-item ${activePage === label ? "active" : ""}`}
+            className={`nav-item ${label === 'Home' ? 'active' : ''}`}
             onClick={() => onNavigate(label)}
           >
-            <Icon size={18} />
-            <span>{label}</span>
+            <Icon size={17} /><span>{label}</span>
           </button>
         ))}
-      </nav>
-
-      <div className="sidebar-divider" />
-
-      <div className="section-heading">
-        <span>FAVOURITES</span>
-
-        <IconButton aria-label="Add favourite">
-          <Plus size={15} />
-        </IconButton>
       </div>
 
-      <button className="favourite-item">
-        <span className="mini-folder lavender-bg">
-          <FileText size={14} />
-        </span>
-        <span>College</span>
-        <Star size={13} className="favourite-star" />
-      </button>
+      <div className="nav-group">
+        <div className="nav-heading">PINNED</div>
+        {pinnedLinks.map(({ label, icon: Icon }) => (
+          <button
+            key={label}
+            className="nav-item"
+            onClick={() => onNavigate(label)}
+          >
+            <Icon size={17} /><span>{label}</span>
+          </button>
+        ))}
+      </div>
 
-      <button className="favourite-item">
-        <span className="mini-folder blue-bg">
-          <FolderOpen size={14} />
-        </span>
-        <span>Projects</span>
-      </button>
-
-      <button className="favourite-item">
-        <span className="mini-folder peach-bg">
-          <Image size={14} />
-        </span>
-        <span>Design assets</span>
-      </button>
-
-      <div className="sidebar-bottom">
-        <div className="storage-heading">
-          <HardDrive size={16} />
-          <span>Storage</span>
-        </div>
-
-        <div className="storage-bar">
-          <div className="storage-used" />
-        </div>
-
-        <p className="storage-caption">Storage data will be connected later.</p>
-
-        <button className="nav-item settings-item">
-          <Settings size={17} />
-          <span>Settings</span>
+      <div className="nav-group">
+        <div className="nav-heading">THIS PC</div>
+        <button className="nav-item" onClick={() => onNavigate('This PC')}>
+          <HardDrive size={17} /><span>Local Disk (C:)</span>
+        </button>
+        <button className="nav-item" onClick={() => onNavigate('Recent')}>
+          <Clock3 size={17} /><span>Recent</span>
+        </button>
+        <button className="nav-item" onClick={() => onNavigate('Favorites')}>
+          <Star size={17} /><span>Favorites</span>
         </button>
       </div>
-    </aside>
+
+      <div className="sidebar-bottom">
+        <div className="storage-card">
+          <div className="storage-title"><HardDrive size={15} /> Local Disk (C:)</div>
+          <div className="storage-track"><span /></div>
+          <div className="storage-caption">128 GB free of 256 GB</div>
+        </div>
+        <button className="nav-item" onClick={() => onNavigate('Settings')}>
+          <Settings size={17} /><span>Settings</span>
+        </button>
+        <div className="demo-label"><span /> Mock filesystem · Offline</div>
+      </div>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
-import { FileText, MoreHorizontal } from "lucide-react";
+import { FileText, MoreHorizontal } from 'lucide-react';
 
-import IconButton from "../common/IconButton";
-import type { FileItem } from "../../types/file";
+import IconButton from '../common/IconButton';
+import type { FileItem } from '../../types/file';
 
 interface FileRowProps {
   file: FileItem;
@@ -28,7 +28,10 @@ export default function FileRow({ file }: FileRowProps) {
 
       <span className="file-extension">{file.type}</span>
 
-      <IconButton className="row-menu" aria-label={`Options for ${file.name}`}>
+      <IconButton
+        className="row-menu"
+        aria-label={`Options for ${file.name}`}
+      >
         <MoreHorizontal size={18} />
       </IconButton>
     </div>

@@ -1,4 +1,5 @@
-import { ChevronRight } from "lucide-react";
+
+import { ChevronRight } from 'lucide-react';
 
 interface SectionHeaderProps {
   title: string;
@@ -10,7 +11,7 @@ interface SectionHeaderProps {
 export default function SectionHeader({
   title,
   count,
-  actionLabel = "View all",
+  actionLabel = 'View all',
   onAction,
 }: SectionHeaderProps) {
   return (
@@ -18,7 +19,9 @@ export default function SectionHeader({
       <div className="section-title">
         <h2>{title}</h2>
 
-        {count !== undefined && <span className="count-badge">{count}</span>}
+        {count !== undefined && (
+          <span className="count-badge">{count}</span>
+        )}
       </div>
 
       <button className="text-button" onClick={onAction}>

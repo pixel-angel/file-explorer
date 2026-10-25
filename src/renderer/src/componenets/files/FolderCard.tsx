@@ -1,13 +1,16 @@
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal } from 'lucide-react';
 
-import type { FolderItem } from "../../types/file";
+import type { FolderItem } from '../../types/file';
 
 interface FolderCardProps {
   folder: FolderItem;
   onOpen?: (folder: FolderItem) => void;
 }
 
-export default function FolderCard({ folder, onOpen }: FolderCardProps) {
+export default function FolderCard({
+  folder,
+  onOpen,
+}: FolderCardProps) {
   const Icon = folder.icon;
 
   return (
@@ -21,7 +24,11 @@ export default function FolderCard({ folder, onOpen }: FolderCardProps) {
           <Icon size={21} strokeWidth={1.8} />
         </div>
 
-        <MoreHorizontal size={19} className="folder-menu" aria-hidden="true" />
+        <MoreHorizontal
+          size={19}
+          className="folder-menu"
+          aria-hidden="true"
+        />
       </div>
 
       <div className="folder-card-bottom">
@@ -30,7 +37,11 @@ export default function FolderCard({ folder, onOpen }: FolderCardProps) {
           <p>{folder.description}</p>
         </div>
 
-        <ChevronRight size={16} className="folder-arrow" aria-hidden="true" />
+        <ChevronRight
+          size={16}
+          className="folder-arrow"
+          aria-hidden="true"
+        />
       </div>
     </button>
   );
