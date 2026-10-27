@@ -1,0 +1,5 @@
+D:/Codes/file explorer/file-explorer/backend/build/CMakeFiles/file_explorer_backend.dir
+D:/Codes/file explorer/file-explorer/backend/build/CMakeFiles/edit_cache.dir
+D:/Codes/file explorer/file-explorer/backend/build/CMakeFiles/rebuild_cache.dir
+D:/Codes/file explorer/file-explorer/backend/build/_deps/json-build/CMakeFiles/edit_cache.dir
+D:/Codes/file explorer/file-explorer/backend/build/_deps/json-build/CMakeFiles/rebuild_cache.dir

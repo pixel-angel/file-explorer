@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/Codes/file explorer/file-explorer/backend/build/cmake_install.cmake",
+		"D:/Codes/file explorer/file-explorer/backend/build/_deps/json-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
