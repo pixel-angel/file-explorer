@@ -92,8 +92,6 @@ export default function HomePage({
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const [selected, setSelected] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
   const [view, setView] = useState<ViewMode>('details');
 
   const [sortBy, setSortBy] = useState<
@@ -104,40 +102,9 @@ export default function HomePage({
   const [showProperties, setShowProperties] = useState(true);
 
   const [dialog, setDialog] = useState<'new' | 'rename' | null>(null);
+  const [newItemKind, setNewItemKind] = useState<'folder' | 'file'>('folder');
   const [inputName, setInputName] = useState('');
   const [notice, setNotice] = useState('');
-
-  const [clipboard, setClipboard] = useState<{
-    itemId: string;
-    operation: 'copy' | 'cut';
-  } | null>(null);
-
-  const [undoStack, setUndoStack] = useState<{
-    items: ExplorerItem[];
-    favorites: string[];
-  }[]>([]);
-
-  function saveUndoSnapshot() {
-    setUndoStack(previous => [
-      ...previous,
-      { items: [...items], favorites: [...favorites] },
-    ].slice(-20));
-  }
-
-  function undoLastAction() {
-    if (undoStack.length === 0) {
-      setNotice('Nothing to undo.');
-      return;
-    }
-
-    const snapshot = undoStack[undoStack.length - 1];
-    setItems(snapshot.items);
-    setFavorites(snapshot.favorites);
-    setUndoStack(previous => previous.slice(0, -1));
-    setSelected(null);
-      setSelectedIds([]);
-    setNotice('Last action undone.');
-  }
 
   const [favorites, setFavorites] = useState<string[]>([
     'design',
@@ -152,37 +119,6 @@ export default function HomePage({
 
   const selectedItem =
     items.find(item => item.id === selected) ?? null;
-
-  function handleItemSelection(
-    item: ExplorerItem,
-    event: MouseEvent,
-    index: number,
-  ) {
-    if (event.shiftKey && lastClickedIndex !== null) {
-      const start = Math.min(lastClickedIndex, index);
-      const end = Math.max(lastClickedIndex, index);
-      const rangeIds = visibleItems.slice(start, end + 1).map(entry => entry.id);
-      setSelectedIds(rangeIds);
-      setSelected(item.id);
-      return;
-    }
-
-    if (event.ctrlKey || event.metaKey) {
-      const wasSelected = selectedIds.includes(item.id);
-      const nextIds = wasSelected
-        ? selectedIds.filter(id => id !== item.id)
-        : [...selectedIds, item.id];
-
-      setSelectedIds(nextIds);
-      setSelected(wasSelected ? (nextIds[nextIds.length - 1] ?? null) : item.id);
-      setLastClickedIndex(index);
-      return;
-    }
-
-    setSelected(item.id);
-    setSelectedIds([item.id]);
-    setLastClickedIndex(index);
-  }
 
   const selectedExtension = selectedItem
     ? getExtension(selectedItem.name)
@@ -209,7 +145,6 @@ export default function HomePage({
 
     setCurrent(destination);
     setSelected(null);
-      setSelectedIds([]);
 
     setHistory(previous => [
       ...previous.slice(0, historyIndex + 1),
@@ -226,7 +161,6 @@ export default function HomePage({
     event.preventDefault();
 
     setSelected(item.id);
-    setSelectedIds([item.id]);
 
     setContextMenu({
       x: event.clientX,
@@ -240,7 +174,6 @@ export default function HomePage({
 
     setCurrent(id);
     setSelected(null);
-      setSelectedIds([]);
 
     setHistory(previous => [
       ...previous.slice(0, historyIndex + 1),
@@ -258,7 +191,6 @@ export default function HomePage({
     setHistoryIndex(nextIndex);
     setCurrent(history[nextIndex]);
     setSelected(null);
-      setSelectedIds([]);
   }
 
   function goForward() {
@@ -269,7 +201,6 @@ export default function HomePage({
     setHistoryIndex(nextIndex);
     setCurrent(history[nextIndex]);
     setSelected(null);
-      setSelectedIds([]);
   }
 
   function goUp() {
@@ -281,15 +212,38 @@ export default function HomePage({
     goTo(parent);
   }
 
-  function openItem(item: ExplorerItem) {
+  async function openItem(item: ExplorerItem) {
     if (item.kind === 'folder') {
       goTo(item.id);
-    } else {
-      setSelected(item.id);
-      setSelectedIds([item.id]);
+      return;
+    }
 
+    setSelected(item.id);
+
+    if (!item.path) {
       setNotice(
-        `"${item.name}" is a mock file. Real file opening will be available after filesystem integration.`,
+        `"${item.name}" is a mock file. It needs a real filesystem path to open.`,
+      );
+      return;
+    }
+
+    try {
+      const result = (await window.ipcRenderer.invoke(
+        'folio:open-file',
+        item.path,
+      )) as {
+        success: boolean;
+        error?: string;
+      };
+
+      if (!result.success) {
+        setNotice(result.error ?? `Could not open "${item.name}".`);
+      }
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : `Could not open "${item.name}".`,
       );
     }
   }
@@ -369,22 +323,24 @@ export default function HomePage({
     }
 
     if (dialog === 'new') {
+      const isFolder = newItemKind === 'folder';
+
       const newItem: ExplorerItem = {
         id: `mock-${Date.now()}`,
         name,
-        kind: 'folder',
+        kind: isFolder ? 'folder' : 'file',
         parent: current,
         modified: 'Just now',
         size: 0,
-        type: 'File folder',
+        type: isFolder
+          ? 'File folder'
+          : `${getExtension(name).toUpperCase() || 'TXT'} File`,
       };
 
-      saveUndoSnapshot();
       setItems(previous => [...previous, newItem]);
       setSelected(newItem.id);
-      setNotice(`Created mock folder "${name}".`);
+      setNotice(`Created mock ${isFolder ? 'folder' : 'file'} "${name}".`);
     } else if (dialog === 'rename' && selectedItem) {
-      saveUndoSnapshot();
       setItems(previous =>
         previous.map(item =>
           item.id === selectedItem.id
@@ -411,212 +367,54 @@ export default function HomePage({
   function deleteSelected() {
     if (!selectedItem) return;
 
-    const idsToDelete = selectedIds.length ? selectedIds : [selectedItem.id];
-    const selectedNames = items
-      .filter(item => idsToDelete.includes(item.id))
-      .map(item => item.name);
+    if (
+      !window.confirm(
+        `Remove "${selectedItem.name}" from the mock filesystem?`,
+      )
+    ) {
+      return;
+    }
 
-    if (!window.confirm(
-      idsToDelete.length > 1
-        ? `Remove ${idsToDelete.length} selected items from the mock filesystem?`
-        : `Remove "${selectedNames[0] ?? selectedItem.name}" from the mock filesystem?`,
-    )) return;
+    const removeIds = new Set<string>([selectedItem.id]);
 
-    const removeIds = new Set<string>(idsToDelete);
     let changed = true;
 
     while (changed) {
       changed = false;
+
       items.forEach(item => {
-        if (removeIds.has(item.parent) && !removeIds.has(item.id)) {
+        if (
+          removeIds.has(item.parent) &&
+          !removeIds.has(item.id)
+        ) {
           removeIds.add(item.id);
           changed = true;
         }
       });
     }
 
-    saveUndoSnapshot();
-    setItems(previous => previous.filter(item => !removeIds.has(item.id)));
-    setFavorites(previous => previous.filter(id => !removeIds.has(id)));
+    setItems(previous =>
+      previous.filter(item => !removeIds.has(item.id)),
+    );
+
+    setFavorites(previous =>
+      previous.filter(id => !removeIds.has(id)),
+    );
+
     setSelected(null);
-    setSelectedIds([]);
-    setNotice(idsToDelete.length > 1 ? 'Removed selected items from mock data.' : 'Removed from mock data only.');
+    setNotice('Removed from mock data only.');
   }
-
-  useEffect(() => {
-    function handleKeyboard(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-
-      if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        setContextMenu(null);
-        setSelected(null);
-      setSelectedIds([]);
-        setDialog(null);
-        return;
-      }
-
-      if (event.ctrlKey && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        undoLastAction();
-        return;
-      }
-
-      if (event.ctrlKey && event.key.toLowerCase() === 'v') {
-        event.preventDefault();
-
-        if (!clipboard) {
-          setNotice('Clipboard is empty.');
-          return;
-        }
-
-        const source = items.find(
-          item => item.id === clipboard.itemId,
-        );
-
-        if (!source) {
-          setNotice('Clipboard item no longer exists.');
-          setClipboard(null);
-          return;
-        }
-
-        if (source.id === current) {
-          setNotice('Cannot paste a folder into itself.');
-          return;
-        }
-
-        // Prevent moving/copying a folder into itself or one of its descendants.
-        let destinationParent: string | undefined = current;
-        while (destinationParent && destinationParent !== 'root') {
-          if (destinationParent === source.id) {
-            setNotice('Cannot paste a folder inside itself.');
-            return;
-          }
-
-          destinationParent = items.find(
-            item => item.id === destinationParent,
-          )?.parent;
-        }
-
-        if (
-          items.some(
-            item =>
-              item.parent === current &&
-              item.name.toLowerCase() === source.name.toLowerCase() &&
-              item.id !== source.id,
-          )
-        ) {
-          setNotice('An item with this name already exists.');
-          return;
-        }
-
-        if (clipboard.operation === 'copy') {
-          const copiedItem: ExplorerItem = {
-            ...source,
-            id: `copy-${Date.now()}`,
-            parent: current,
-            modified: 'Just now',
-          };
-
-          saveUndoSnapshot();
-          setItems(previous => [...previous, copiedItem]);
-          setSelected(copiedItem.id);
-          setNotice(`Copied "${source.name}" here.`);
-        } else {
-          if (source.parent === current) {
-            setNotice('This item is already in this folder.');
-            return;
-          }
-
-          saveUndoSnapshot();
-          setItems(previous =>
-            previous.map(item =>
-              item.id === source.id
-                ? {
-                    ...item,
-                    parent: current,
-                    modified: 'Just now',
-                  }
-                : item,
-            ),
-          );
-
-          setSelected(source.id);
-          setClipboard(null);
-          setNotice(`Moved "${source.name}" here.`);
-        }
-      }
-
-      if (!selectedItem) return;
-
-      if (event.key === 'F2') {
-        event.preventDefault();
-        setInputName(selectedItem.name);
-        setDialog('rename');
-        setContextMenu(null);
-        return;
-      }
-
-      if (event.key === 'Delete') {
-        event.preventDefault();
-        deleteSelected();
-        setContextMenu(null);
-        return;
-      }
-
-      if (event.ctrlKey && event.key.toLowerCase() === 'c') {
-        event.preventDefault();
-
-        setClipboard({
-          itemId: selectedItem.id,
-          operation: 'copy',
-        });
-
-        setNotice(`Copied "${selectedItem.name}".`);
-        return;
-      }
-
-      if (event.ctrlKey && event.key.toLowerCase() === 'x') {
-        event.preventDefault();
-
-        setClipboard({
-          itemId: selectedItem.id,
-          operation: 'cut',
-        });
-
-        setNotice(`Cut "${selectedItem.name}".`);
-        return;
-      }
-
-
-    }
-
-    window.addEventListener('keydown', handleKeyboard);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyboard);
-    };
-  }, [selectedItem, clipboard, items, current, favorites, undoStack]);
 
   function toggleFavorite() {
     if (!selectedItem) return;
 
     if (favorites.includes(selectedItem.id)) {
-      saveUndoSnapshot();
       setFavorites(previous =>
         previous.filter(id => id !== selectedItem.id),
       );
 
       setNotice('Removed from Favorites.');
     } else {
-      saveUndoSnapshot();
       setFavorites(previous => [
         ...previous,
         selectedItem.id,
@@ -659,7 +457,6 @@ export default function HomePage({
       });
     }
 
-    saveUndoSnapshot();
     setItems(previous =>
       previous.filter(entry => !removeIds.has(entry.id)),
     );
@@ -669,7 +466,6 @@ export default function HomePage({
     );
 
     setSelected(null);
-      setSelectedIds([]);
     setNotice('Removed from mock data only.');
   }
 
@@ -787,6 +583,7 @@ export default function HomePage({
           className="command-primary"
           onClick={() => {
             setDialog('new');
+            setNewItemKind('folder');
             setInputName('');
           }}
         >
@@ -967,13 +764,9 @@ export default function HomePage({
                   <button
                     key={item.id}
                     className={`file-row ${
-                      selectedIds.includes(item.id) || selected === item.id
-                        ? 'file-row-selected'
-                        : ''
+                      selected === item.id ? 'file-row-selected' : ''
                     }`}
-                    onClick={event =>
-                      handleItemSelection(item, event, visibleItems.findIndex(entry => entry.id === item.id))
-                    }
+                    onClick={() => setSelected(item.id)}
                     onDoubleClick={() => openItem(item)}
                     onContextMenu={event =>
                       handleContextMenu(event, item)
@@ -997,13 +790,9 @@ export default function HomePage({
                 <button
                   key={item.id}
                   className={`grid-item ${
-                    selectedIds.includes(item.id) || selected === item.id
-                      ? 'grid-item-selected'
-                      : ''
+                    selected === item.id ? 'grid-item-selected' : ''
                   }`}
-                  onClick={event =>
-                    handleItemSelection(item, event, visibleItems.findIndex(entry => entry.id === item.id))
-                  }
+                  onClick={() => setSelected(item.id)}
                   onDoubleClick={() => openItem(item)}
                   onContextMenu={event =>
                     handleContextMenu(event, item)
@@ -1057,19 +846,10 @@ export default function HomePage({
 
             {selectedItem && (
               <span>
-                {selectedIds.length > 1
-                  ? `${selectedIds.length} items selected`
-                  : `Selected: ${selectedItem.name} · ${formatSize(selectedItem.size)}`}
+                Selected: {selectedItem.name} ·{' '}
+                {formatSize(selectedItem.size)}
               </span>
             )}
-
-            {clipboard && (
-              <span>
-                Clipboard: {clipboard.operation === 'cut' ? 'Cut' : 'Copied'}
-              </span>
-            )}
-
-            {undoStack.length > 0 && <span>Ctrl+Z: Undo available</span>}
 
             <span className="status-mock">
               <span />
@@ -1212,7 +992,7 @@ export default function HomePage({
             <div className="dialog-heading">
               <h2>
                 {dialog === 'new'
-                  ? 'Create new folder'
+                  ? (newItemKind === 'folder' ? 'Create new folder' : 'Create new file')
                   : 'Rename item'}
               </h2>
 
@@ -1227,15 +1007,41 @@ export default function HomePage({
 
             <p>
               {dialog === 'new'
-                ? 'Add a folder to this mock directory.'
+                ? 'Create a new item in this mock directory.'
                 : 'Enter a new name for this item.'}
             </p>
+
+            {dialog === 'new' && (
+              <div className="new-item-options">
+                <button
+                  type="button"
+                  className={newItemKind === 'folder' ? 'selected' : ''}
+                  onClick={() => setNewItemKind('folder')}
+                >
+                  📁 New folder
+                </button>
+
+                <button
+                  type="button"
+                  className={newItemKind === 'file' ? 'selected' : ''}
+                  onClick={() => setNewItemKind('file')}
+                >
+                  📄 New file
+                </button>
+              </div>
+            )}
 
             <input
               autoFocus
               value={inputName}
               onChange={event => setInputName(event.target.value)}
-              placeholder="Folder name"
+              placeholder={
+                dialog === 'rename'
+                  ? 'Enter new name'
+                  : newItemKind === 'folder'
+                    ? 'Folder name'
+                    : 'File name (e.g. notes.txt)'
+              }
             />
 
             <div className="dialog-actions">
@@ -1251,7 +1057,11 @@ export default function HomePage({
                 className="command-primary"
                 type="submit"
               >
-                {dialog === 'new' ? 'Create folder' : 'Rename'}
+                {dialog === 'rename'
+                  ? 'Rename'
+                  : newItemKind === 'folder'
+                    ? 'Create folder'
+                    : 'Create file'}
               </button>
             </div>
           </form>
@@ -1314,7 +1124,6 @@ export default function HomePage({
               onClick={() => {
                 const id = contextMenu.itemId;
 
-                saveUndoSnapshot();
                 setFavorites(previous =>
                   previous.includes(id)
                     ? previous.filter(favoriteId => favoriteId !== id)

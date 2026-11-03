@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 dist-electron/
+# Electron build output
+release/
+dist/
+out/
+
