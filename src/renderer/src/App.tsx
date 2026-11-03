@@ -5,10 +5,20 @@ import './App.css';
 
 export default function App() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState('Home');
 
   return (
-    <AppLayout search={search} onSearchChange={setSearch}>
-      <HomePage search={search} />
+    <AppLayout
+      search={search}
+      onSearchChange={setSearch}
+      page={page}
+      onNavigate={setPage}
+    >
+      <HomePage
+        search={search}
+        page={page}
+        onNavigate={setPage}
+      />
     </AppLayout>
   );
 }
